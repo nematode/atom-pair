@@ -1,6 +1,7 @@
 {CompositeDisposable} = require 'atom'
 
 Invitation = null
+FlowdockInvitation = null
 HipChatInvitation = null
 SlackInvitation = null
 Session = null
@@ -13,6 +14,10 @@ module.exports = AtomPair =
   subscriptions: null
 
   config:
+    flowdock_key:
+      type: 'string'
+      description: 'Flowdock API token'
+      default: ''
     hipchat_token:
       type: 'string'
       description: 'HipChat admin token (optional)'
@@ -37,6 +42,7 @@ module.exports = AtomPair =
   activate: (state) ->
     _ = require 'underscore'
     Invitation = require './modules/invitations/invitation'
+    FlowdockInvitation = require './modules/invitations/flowdock_invitation'
     HipChatInvitation = require './modules/invitations/hipchat_invitation'
     SlackInvitation = require './modules/invitations/slack_invitation'
     Session = require './modules/session'
