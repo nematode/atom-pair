@@ -1,28 +1,21 @@
-InputView = require '../views/input-view'
+Invitation = require './invitation'
 Flowdock = require 'flowdock'
 _ = require 'underscore'
 
-module.exports = FlowdockInvite =
+module.exports =
+class FlowdockInvitation extends Invitation
 
-  inviteOverFlowdock: ->
-    @getKeysFromConfig()
+  needsInput: true
+  askRecipientName: "Please enter the Flowdock name of your pair partner (or flow):"
 
-    if @missingPusherKeys()
-      atom.notifications.addError("Please set your Pusher keys.")
-    else if @missingFlowdockKey()
-      atom.notifications.addError("Please set your Flowdock API key.")
+  checkConfig: ->
+    if @session.missingFlowdockKey()
+      atom.notifications.addError("Please set your Flowdock key.")
+      false
     else
-      inviteView = new InputView("Please enter the Flowdock name of your pair partner (or flow name):")
-      inviteView.miniEditor.focus()
-      atom.commands.add inviteView.element, 'core:confirm': =>
-        messageRcpt = inviteView.miniEditor.getText()
-        inviteView.panel.hide()
-        @sendFlowdockMessageTo(messageRcpt)
+      true
 
-
-  sendFlowdockMessageTo: (messageRcpt) ->
-    if _.isEmpty messageRcpt then return
-
+  getFlowdock: ->
     try
       @session = new Flowdock.Session(@flowdock_key)
       @session.on 'error', () -> _.noop  #prevent errors from affecting Atom
@@ -30,33 +23,31 @@ module.exports = FlowdockInvite =
       atom.notifications.addError("Could not connect to Flowdock. Please check your API key.")
       return
 
-    @generateSessionId()
+  send: (done) ->
+    @getFlowdock()
 
     inviteText = "Hello there #{messageRcpt}. You have been invited to a pairing session. If you haven't installed the AtomPair plugin, type \`apm install atom-pair\` into your terminal. Go onto Atom, hit 'Join a pairing session', and enter this string: `#{@sessionId}`"
 
-    recipient = @getRecipient(messageRcpt) # THIS DOES NOT WORK; ASYNC PROGRAMMING FAIL. Need to wait for @getRecipient to return. How?
+    recipientType = @getRecipientType() # THIS DOES NOT WORK; ASYNC PROGRAMMING FAIL. Need to wait for @getRecipient to return. How?
 
-    if recipient.type is 'user'
+    if recipientType is 'user'
       # send a message to the user
       @session.privateMessage recipient.id, inviteText, (err, message, res) =>
         console.log 'Sending invite...'
         atom.notifications.addInfo("#{messageRcpt} has been sent an invitation. Hold tight!")
         @markerColour = @colours[0]
-        @pairingSetup()
         return
 
-    if recipient.type is 'flow'
+    if recipientType is 'flow'
       # send a message to the flow
       @session.message recipient.id, inviteText, (err, message, res) =>
         atom.notifications.addInfo("#{messageRcpt} has been sent an invitation. Hold tight!")
         @markerColour = @colours[0]
-        @pairingSetup()
         return
 
-
-  getRecipient: (messageRcpt) ->
-    isNickLookup = messageRcpt.charAt(0) is '@'
-    rcptAlias = if isNickLookup then messageRcpt.slice(1).toUpperCase() else messageRcpt.toUpperCase()
+  getRecipientType: ->
+    isNickLookup = @recipient.charAt(0) is '@'
+    rcptAlias = if isNickLookup then @recipient.slice(1).toUpperCase() else @recipient.toUpperCase()
 
     # Can't be sure if we're inviting a user or a flow. Try users then flows.
     @session.get '/users', {}, (err, message, res) ->
